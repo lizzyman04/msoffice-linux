@@ -11,6 +11,14 @@ success() { echo -e "${GREEN}[+]${RESET} $*"; }
 warn()    { echo -e "${YELLOW}[!]${RESET} $*"; }
 error()   { echo -e "${RED}[x]${RESET} $*" >&2; exit 1; }
 
+RAW_BASE="https://raw.githubusercontent.com/lizzyman04/msoffice-linux/main"
+
+APPS=(word excel powerpoint outlook onenote access publisher)
+WRAPPERS=(ms-word ms-excel ms-powerpoint ms-outlook ms-onenote ms-access ms-publisher)
+ICON_SIZES=(16 32 48 128 256)
+
+TMPDIR_ASSETS=""
+
 print_banner() {
     echo
     echo "  Play-MSOffice-on-Linux"
@@ -19,19 +27,81 @@ print_banner() {
     echo
 }
 
-WRAPPERS=(ms-word ms-excel ms-powerpoint ms-outlook ms-onenote ms-access ms-publisher)
+download_repo_file() {
+    local repo_path="$1"
+    local dest="$2"
+    curl -sL "$RAW_BASE/$repo_path" -o "$dest"
+}
 
-ICON_SIZES=(16 32 48 128 256)
+cleanup() {
+    if [[ -n "$TMPDIR_ASSETS" && -d "$TMPDIR_ASSETS" ]]; then
+        rm -rf "$TMPDIR_ASSETS"
+    fi
+}
+
+fetch_wrappers_dir() {
+    local local_dir="$SCRIPT_DIR/wrappers"
+    if [[ -d "$local_dir" ]]; then
+        echo "$local_dir"
+        return
+    fi
+
+    info "wrappers/ not found locally — downloading from GitHub..."
+    local tmp="$TMPDIR_ASSETS/wrappers"
+    mkdir -p "$tmp"
+    for app in "${APPS[@]}"; do
+        download_repo_file "wrappers/ms-${app}" "$tmp/ms-${app}"
+        chmod +x "$tmp/ms-${app}"
+    done
+    echo "$tmp"
+}
+
+fetch_desktop_dir() {
+    local local_dir="$SCRIPT_DIR/desktop"
+    if [[ -d "$local_dir" ]]; then
+        echo "$local_dir"
+        return
+    fi
+
+    info "desktop/ not found locally — downloading from GitHub..."
+    local tmp="$TMPDIR_ASSETS/desktop"
+    mkdir -p "$tmp"
+    for app in "${APPS[@]}"; do
+        download_repo_file "desktop/ms-${app}.desktop" "$tmp/ms-${app}.desktop"
+    done
+    echo "$tmp"
+}
+
+fetch_icons_dir() {
+    local local_dir="$SCRIPT_DIR/icons"
+    if [[ -d "$local_dir" ]]; then
+        echo "$local_dir"
+        return
+    fi
+
+    info "icons/ not found locally — downloading from GitHub..."
+    local tmp="$TMPDIR_ASSETS/icons"
+    mkdir -p "$tmp"
+    for app in "${APPS[@]}"; do
+        for size in "${ICON_SIZES[@]}"; do
+            download_repo_file "icons/ms-${app}-${size}.png" "$tmp/ms-${app}-${size}.png"
+        done
+    done
+    echo "$tmp"
+}
 
 install_wrappers() {
     local bin_dir="$HOME/.local/bin"
     mkdir -p "$bin_dir"
 
+    local wrappers_src
+    wrappers_src="$(fetch_wrappers_dir)"
+
     info "Installing wrapper scripts to $bin_dir..."
     for wrapper in "${WRAPPERS[@]}"; do
-        local src="$SCRIPT_DIR/wrappers/$wrapper"
+        local src="$wrappers_src/$wrapper"
         if [[ ! -f "$src" ]]; then
-            warn "Wrapper not found, skipping: $src"
+            warn "Wrapper not found, skipping: $wrapper"
             continue
         fi
         cp "$src" "$bin_dir/$wrapper"
@@ -50,11 +120,8 @@ install_desktop_files() {
     local apps_dir="$HOME/.local/share/applications"
     mkdir -p "$apps_dir"
 
-    local desktop_src="$SCRIPT_DIR/desktop"
-    if [[ ! -d "$desktop_src" ]]; then
-        warn "desktop/ directory not found at $desktop_src — skipping .desktop install."
-        return
-    fi
+    local desktop_src
+    desktop_src="$(fetch_desktop_dir)"
 
     info "Installing .desktop entries to $apps_dir..."
     for f in "$desktop_src"/*.desktop; do
@@ -65,18 +132,14 @@ install_desktop_files() {
 }
 
 install_icons() {
-    local icons_src="$SCRIPT_DIR/icons"
-    if [[ ! -d "$icons_src" ]]; then
-        warn "icons/ directory not found at $icons_src — skipping icon install."
-        return
-    fi
+    local icons_src
+    icons_src="$(fetch_icons_dir)"
 
     info "Installing icons..."
     for size in "${ICON_SIZES[@]}"; do
         local icon_dir="$HOME/.local/share/icons/hicolor/${size}x${size}/apps"
         mkdir -p "$icon_dir"
         for wrapper in "${WRAPPERS[@]}"; do
-            # filename pattern: ms-<app>-<size>.png  (e.g. ms-word-48.png)
             local app="${wrapper#ms-}"
             local src="$icons_src/ms-${app}-${size}.png"
             if [[ -f "$src" ]]; then
@@ -123,6 +186,9 @@ main() {
     else
         SCRIPT_DIR="$(pwd)"
     fi
+
+    TMPDIR_ASSETS="$(mktemp -d /tmp/msoffice-integrate-XXXXXX)"
+    trap cleanup EXIT
 
     install_wrappers
     install_desktop_files
