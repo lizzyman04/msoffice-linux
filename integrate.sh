@@ -76,7 +76,9 @@ install_icons() {
         local icon_dir="$HOME/.local/share/icons/hicolor/${size}x${size}/apps"
         mkdir -p "$icon_dir"
         for wrapper in "${WRAPPERS[@]}"; do
-            local src="$icons_src/${size}x${size}/${wrapper}.png"
+            # filename pattern: ms-<app>-<size>.png  (e.g. ms-word-48.png)
+            local app="${wrapper#ms-}"
+            local src="$icons_src/ms-${app}-${size}.png"
             if [[ -f "$src" ]]; then
                 cp "$src" "$icon_dir/${wrapper}.png"
             fi
