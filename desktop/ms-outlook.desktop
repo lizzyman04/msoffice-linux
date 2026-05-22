@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Microsoft Outlook
+GenericName=Email Client
+Comment=Manage email, calendar, and contacts
+Exec=ms-outlook %f
+Icon=ms-outlook
+Terminal=false
+Type=Application
+Categories=Office;Email;Network;
+MimeType=x-scheme-handler/mailto;message/rfc822;
+StartupWMClass=OUTLOOK.EXE

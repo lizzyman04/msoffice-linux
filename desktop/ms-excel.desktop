@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Microsoft Excel
+GenericName=Spreadsheet
+Comment=Create and edit spreadsheets
+Exec=ms-excel %f
+Icon=ms-excel
+Terminal=false
+Type=Application
+Categories=Office;Spreadsheet;
+MimeType=application/vnd.ms-excel;application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;application/vnd.ms-excel.sheet.macroEnabled.12;text/csv;
+StartupWMClass=EXCEL.EXE

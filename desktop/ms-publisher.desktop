@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Microsoft Publisher
+GenericName=Desktop Publishing
+Comment=Create publications and marketing materials
+Exec=ms-publisher %f
+Icon=ms-publisher
+Terminal=false
+Type=Application
+Categories=Office;Publishing;Graphics;
+MimeType=application/vnd.ms-publisher;application/x-mspublisher;
+StartupWMClass=MSPUB.EXE

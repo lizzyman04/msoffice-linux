@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Microsoft Access
+GenericName=Database
+Comment=Create and manage databases
+Exec=ms-access %f
+Icon=ms-access
+Terminal=false
+Type=Application
+Categories=Office;Database;
+MimeType=application/msaccess;application/vnd.ms-access;
+StartupWMClass=MSACCESS.EXE

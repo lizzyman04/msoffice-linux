@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Microsoft Word
+GenericName=Word Processor
+Comment=Create and edit documents
+Exec=ms-word %f
+Icon=ms-word
+Terminal=false
+Type=Application
+Categories=Office;WordProcessor;
+MimeType=application/msword;application/vnd.openxmlformats-officedocument.wordprocessingml.document;application/vnd.ms-word.document.macroEnabled.12;application/rtf;text/rtf;
+StartupWMClass=WINWORD.EXE

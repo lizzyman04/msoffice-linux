@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Microsoft OneNote
+GenericName=Note Taking
+Comment=Take and organize notes
+Exec=ms-onenote %f
+Icon=ms-onenote
+Terminal=false
+Type=Application
+Categories=Office;
+StartupWMClass=ONENOTE.EXE
