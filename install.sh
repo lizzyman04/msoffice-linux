@@ -186,13 +186,38 @@ apply_dll_overrides() {
 
 prompt_setup_path() {
     echo
-    read -rp "Enter the full path to your Office setup.exe: " SETUP_PATH
+    warn "TIP: For best results, place your Office installer (ISO contents or folder) in your current directory before continuing."
+    echo
 
-    if [[ ! -f "$SETUP_PATH" ]]; then
-        error "File not found: $SETUP_PATH"
-    fi
+    while true; do
+        read -rp "Enter the full path to your Office setup.exe (or drag the file here): " raw_path
 
-    success "Installer found: $SETUP_PATH"
+        # Strip surrounding single or double quotes (drag-and-drop often adds them)
+        raw_path="${raw_path#\'}" ; raw_path="${raw_path%\'}"
+        raw_path="${raw_path#\"}" ; raw_path="${raw_path%\"}"
+        raw_path="${raw_path% }"  # trim trailing space
+
+        # Resolve to absolute path
+        local resolved
+        resolved="$(realpath -m "$raw_path" 2>/dev/null || readlink -f "$raw_path" 2>/dev/null || echo "$raw_path")"
+
+        # Validate: must exist and have .exe extension (case-insensitive)
+        if [[ ! -f "$resolved" ]] || [[ "${resolved,,}" != *.exe ]]; then
+            echo -e "${RED}[x]${RESET} File not found or not an .exe: $resolved" >&2
+            continue
+        fi
+
+        SETUP_PATH="$resolved"
+        success "Installer found: $SETUP_PATH"
+        echo
+
+        local confirm
+        read -rp "Proceed with installation? (y/n): " confirm
+        if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
+            break
+        fi
+        echo "Re-enter the path."
+    done
 }
 
 run_office_installer() {
@@ -201,6 +226,23 @@ run_office_installer() {
         -b msoffice \
         -e "$SETUP_PATH"
     success "Office installer finished."
+}
+
+run_integrate() {
+    local integrate_local="$SCRIPT_DIR/integrate.sh"
+    local raw_integrate="https://raw.githubusercontent.com/lizzyman04/msoffice-linux/main/integrate.sh"
+
+    if [[ -f "$integrate_local" ]]; then
+        info "Running desktop integration..."
+        bash "$integrate_local"
+    else
+        info "Downloading and running integrate.sh..."
+        local tmp_integrate
+        tmp_integrate="$(mktemp /tmp/msoffice-integrate-XXXXXX.sh)"
+        curl -sL "$raw_integrate" -o "$tmp_integrate"
+        bash "$tmp_integrate"
+        rm -f "$tmp_integrate"
+    fi
 }
 
 main() {
@@ -228,10 +270,10 @@ main() {
     apply_dll_overrides
     prompt_setup_path
     run_office_installer
+    run_integrate
 
     echo
-    success "Microsoft Office installation complete."
-    info "Run ./integrate.sh next to set up desktop entries, icons, and file associations."
+    success "Installation complete. Your Office apps should now appear in your application menu."
     echo
 }
 

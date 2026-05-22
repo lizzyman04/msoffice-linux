@@ -43,25 +43,20 @@ cd msoffice-linux
 
 ## Installation
 
-**Step 1 — Get the scripts**
-
-Clone the repo or use the one-liner above.
-
-**Step 2 — Run the installer**
+Run the installer:
 
 ```sh
-./install.sh
+curl -sL https://raw.githubusercontent.com/lizzyman04/msoffice-linux/main/install.sh | bash
 ```
 
-Follow the prompts to select your Office version, download the Wine runner, and point the installer to your Office `setup.exe`. You must provide your own legitimate Microsoft Office installer (ISO or extracted folder, 32-bit).
+The script will:
+1. Install Bottles and download the correct Wine runner
+2. Create and configure the compatibility bottle
+3. Ask you to provide the path to your Office `setup.exe`
+4. Launch the Office installer inside the bottle
+5. Set up desktop integration (icons, shortcuts, file associations)
 
-**Step 3 — Set up desktop integration**
-
-```sh
-./integrate.sh
-```
-
-This adds desktop shortcuts, icons, and file associations so Office apps appear in your app menu and open supported file types automatically.
+Place your Office installer files in your working directory for convenience — when prompted, enter the path to `setup.exe` or drag the file into the terminal.
 
 ## Uninstalling
 
