@@ -1,6 +1,6 @@
 # Play-MSOffice-on-Linux
 
-A lightweight alternative for running Microsoft Office natively on Linux.
+A lightweight alternative to running Microsoft Office natively on Linux.
 
 ## About
 
