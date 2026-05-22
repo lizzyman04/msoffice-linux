@@ -184,13 +184,49 @@ apply_dll_overrides() {
     success "DLL overrides applied (gdiplus, riched20)."
 }
 
+ISO_MOUNT_DIR=""
+
+cleanup_iso() {
+    if [[ -n "$ISO_MOUNT_DIR" && -d "$ISO_MOUNT_DIR" ]]; then
+        info "Unmounting ISO..."
+        sudo umount "$ISO_MOUNT_DIR" 2>/dev/null || true
+        rmdir "$ISO_MOUNT_DIR" 2>/dev/null || true
+        ISO_MOUNT_DIR=""
+    fi
+}
+
+mount_iso() {
+    local iso_path="$1"
+    ISO_MOUNT_DIR="$(mktemp -d /tmp/msoffice-iso-XXXXXX)"
+
+    info "Mounting ISO: $iso_path"
+    if ! sudo mount -o loop,ro "$iso_path" "$ISO_MOUNT_DIR" 2>/dev/null; then
+        rmdir "$ISO_MOUNT_DIR"
+        ISO_MOUNT_DIR=""
+        error "Failed to mount ISO. Make sure 'sudo' is available and the file is a valid ISO."
+    fi
+
+    local exe
+    exe="$(find "$ISO_MOUNT_DIR" -maxdepth 2 -iname "setup.exe" -print -quit 2>/dev/null)"
+
+    if [[ -z "$exe" ]]; then
+        warn "No setup.exe found in ISO. Contents of ISO root:"
+        ls "$ISO_MOUNT_DIR"
+        cleanup_iso
+        error "No setup.exe found in ISO."
+    fi
+
+    SETUP_PATH="$exe"
+    success "Found setup.exe in ISO: $SETUP_PATH"
+}
+
 prompt_setup_path() {
     echo
-    warn "TIP: For best results, place your Office installer (ISO contents or folder) in your current directory before continuing."
+    warn "TIP: You can provide either a setup.exe or an .iso file. Place your Office installer in your current directory before continuing."
     echo
 
     while true; do
-        read -rp "Enter the full path to your Office setup.exe (or drag the file here): " raw_path < /dev/tty
+        read -rp "Enter the full path to your Office setup.exe or .iso (or drag the file here): " raw_path < /dev/tty
 
         # Strip surrounding single or double quotes (drag-and-drop often adds them)
         raw_path="${raw_path#\'}" ; raw_path="${raw_path%\'}"
@@ -201,21 +237,33 @@ prompt_setup_path() {
         local resolved
         resolved="$(realpath -m "$raw_path" 2>/dev/null || readlink -f "$raw_path" 2>/dev/null || echo "$raw_path")"
 
-        # Validate: must exist and have .exe extension (case-insensitive)
-        if [[ ! -f "$resolved" ]] || [[ "${resolved,,}" != *.exe ]]; then
-            echo -e "${RED}[x]${RESET} File not found or not an .exe: $resolved" >&2
+        # Validate: must exist and be .exe or .iso (case-insensitive)
+        if [[ ! -f "$resolved" ]]; then
+            echo -e "${RED}[x]${RESET} File not found: $resolved" >&2
             continue
         fi
 
-        SETUP_PATH="$resolved"
-        success "Installer found: $SETUP_PATH"
-        echo
+        local lower="${resolved,,}"
+        if [[ "$lower" != *.exe && "$lower" != *.iso ]]; then
+            echo -e "${RED}[x]${RESET} Not an .exe or .iso file: $resolved" >&2
+            continue
+        fi
 
+        if [[ "$lower" == *.iso ]]; then
+            mount_iso "$resolved"
+        else
+            SETUP_PATH="$resolved"
+            success "Installer found: $SETUP_PATH"
+        fi
+
+        echo
         local confirm
         read -rp "Proceed with installation? (y/n): " confirm < /dev/tty
         if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
             break
         fi
+
+        cleanup_iso
         echo "Re-enter the path."
     done
 }
@@ -226,6 +274,7 @@ run_office_installer() {
         -b msoffice \
         -e "$SETUP_PATH"
     success "Office installer finished."
+    cleanup_iso
 }
 
 run_integrate() {
@@ -252,6 +301,7 @@ main() {
 
     print_banner
     check_not_root
+    trap cleanup_iso EXIT
 
     # Resolve script directory — handle both local run and pipe-to-bash
     if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "bash" ]]; then
