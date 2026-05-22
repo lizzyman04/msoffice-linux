@@ -129,7 +129,14 @@ download_runner() {
     mkdir -p "$runner_dir"
     local tmp_archive
     tmp_archive="$(mktemp /tmp/wine-runner-XXXXXX.tar.gz)"
-    curl -L --progress-bar "$RUNNER_URL" -o "$tmp_archive"
+
+    if ! curl -L --progress-bar --retry 5 --retry-delay 3 --retry-all-errors \
+              "$RUNNER_URL" -o "$tmp_archive" \
+        || [[ ! -s "$tmp_archive" ]]; then
+        rm -f "$tmp_archive"
+        rmdir "$runner_dir" 2>/dev/null || true
+        error "Failed to download Wine runner. Download manually and place it at:\n    $runner_dir\n  URL: $RUNNER_URL"
+    fi
 
     info "Extracting runner..."
     tar -xzf "$tmp_archive" -C "$runner_dir" --strip-components=1
