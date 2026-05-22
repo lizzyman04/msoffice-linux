@@ -96,24 +96,24 @@ select_office_version() {
         1)
             RUNNER_NAME="pol-8.2"
             RUNNER_URL="https://www.playonlinux.com/wine/binaries/phoenicis/upstream-linux-x86/PlayOnLinux-wine-8.2-upstream-linux-x86.tar.gz"
-            CONFIG_FILE="office2010.yml"
+            WINDOWS_VERSION="win7"
             ;;
         2)
             RUNNER_NAME="pol-4.3"
             RUNNER_URL="https://www.playonlinux.com/wine/binaries/phoenicis/upstream-linux-x86/PlayOnLinux-wine-4.3-upstream-linux-x86.tar.gz"
-            CONFIG_FILE="office2013.yml"
+            WINDOWS_VERSION="win7"
             ;;
         3)
             RUNNER_NAME="pol-4.3"
             RUNNER_URL="https://www.playonlinux.com/wine/binaries/phoenicis/upstream-linux-x86/PlayOnLinux-wine-4.3-upstream-linux-x86.tar.gz"
-            CONFIG_FILE="office2016.yml"
+            WINDOWS_VERSION="win10"
             ;;
         *)
             error "Invalid selection. Run the script again and choose 1, 2, or 3."
             ;;
     esac
 
-    success "Selected runner: $RUNNER_NAME | Config: $CONFIG_FILE"
+    success "Selected runner: $RUNNER_NAME | Windows: $WINDOWS_VERSION"
 }
 
 download_runner() {
@@ -188,51 +188,81 @@ download_runner() {
     success "Runner $RUNNER_NAME installed."
 }
 
-resolve_config() {
-    local configs_local="$SCRIPT_DIR/configs/$CONFIG_FILE"
-    local raw_base="https://raw.githubusercontent.com/lizzyman04/msoffice-linux/main/configs"
+create_bottle() {
+    local bottle_dir="$HOME/.var/app/com.usebottles.bottles/data/bottles/bottles/msoffice"
+    local runner_bin="$HOME/.var/app/com.usebottles.bottles/data/bottles/runners/$RUNNER_NAME/bin/wine"
 
-    if [[ -f "$configs_local" ]]; then
-        RESOLVED_CONFIG="$configs_local"
-    else
-        info "configs/ not found locally (pipe mode). Downloading $CONFIG_FILE..."
-        local tmp_cfg
-        tmp_cfg="$(mktemp /tmp/msoffice-config-XXXXXX.yml)"
-        curl -sL "$raw_base/$CONFIG_FILE" -o "$tmp_cfg"
-        RESOLVED_CONFIG="$tmp_cfg"
+    if [[ -d "$bottle_dir" ]]; then
+        success "Bottle 'msoffice' already exists. Skipping creation."
+        return
     fi
 
-    success "Config resolved: $RESOLVED_CONFIG"
-}
+    info "Initializing Wine prefix for bottle 'msoffice'..."
+    mkdir -p "$bottle_dir"
 
-create_bottle() {
-    info "Creating Bottles environment 'msoffice'..."
-    flatpak run --command=bottles-cli com.usebottles.bottles new \
-        --bottle-name msoffice \
-        --environment custom \
-        --arch win32 \
-        --runner "$RUNNER_NAME"
-    success "Bottle created."
-}
+    flatpak run --command=bash com.usebottles.bottles -c \
+        "WINEPREFIX='$bottle_dir' WINEARCH=win32 '$runner_bin' wineboot --init" 2>/dev/null || true
+    sleep 3
 
-apply_dll_overrides() {
-    info "Applying DLL overrides..."
+    info "Writing bottle.yml..."
+    local creation_date
+    creation_date="$(date +'%Y-%m-%d %H:%M:%S.%6N')"
 
-    flatpak run --command=bottles-cli com.usebottles.bottles reg add \
-        -b msoffice \
-        -k "HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides" \
-        -v gdiplus \
-        -d native,builtin \
-        -t REG_SZ
+    cat > "$bottle_dir/bottle.yml" <<EOF
+Arch: win32
+CompatData: ''
+Creation_Date: '$creation_date'
+Custom_Path: false
+DLL_Overrides:
+    gdiplus: native,builtin
+    riched20: native,builtin
+DXVK: false
+Environment: Custom
+Environment_Variables: {}
+External_Programs: {}
+Installed_Dependencies:
+- msxml6
+- allfonts
+- vcredist2019
+- dotnet48
+- riched20
+Language: sys
+LatencyFleX: false
+NVAPI: false
+Name: msoffice
+Path: msoffice
+Runner: $RUNNER_NAME
+RunnerPath: ''
+Sandbox: false
+State: 0
+Uninstallers: {}
+VKD3D: false
+Versioning: false
+Versioning_Automatic: false
+Versioning_Compression: false
+Versioning_Exclusion_Patterns: false
+Windows: $WINDOWS_VERSION
+WorkingDir: ''
+data: {}
+run_in_terminal: false
+session_arguments: ''
+EOF
 
-    flatpak run --command=bottles-cli com.usebottles.bottles reg add \
-        -b msoffice \
-        -k "HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides" \
-        -v riched20 \
-        -d native,builtin \
-        -t REG_SZ
+    success "bottle.yml written."
 
+    info "Applying DLL overrides to Wine registry..."
+    flatpak run --command=bash com.usebottles.bottles -c \
+        "WINEPREFIX='$bottle_dir' '$runner_bin' reg add 'HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides' /v gdiplus /d native,builtin /f" 2>/dev/null || true
+    flatpak run --command=bash com.usebottles.bottles -c \
+        "WINEPREFIX='$bottle_dir' '$runner_bin' reg add 'HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides' /v riched20 /d native,builtin /f" 2>/dev/null || true
     success "DLL overrides applied (gdiplus, riched20)."
+
+    info "Verifying bottle is recognized by Bottles..."
+    if flatpak run --command=bottles-cli com.usebottles.bottles list bottles 2>/dev/null | grep -q "msoffice"; then
+        success "Bottle 'msoffice' recognized."
+    else
+        warn "Bottle not listed yet — Bottles may need to rescan. Continuing anyway."
+    fi
 }
 
 ISO_MOUNT_DIR=""
@@ -366,9 +396,7 @@ main() {
     set_flatpak_permissions
     select_office_version
     download_runner
-    resolve_config
     create_bottle
-    apply_dll_overrides
     prompt_setup_path
     run_office_installer
     run_integrate
