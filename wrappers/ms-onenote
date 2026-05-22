@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Wrapper for Microsoft OneNote via Bottles
+
+EXE="ONENOTE.EXE"
+
+if [[ -n "$1" ]]; then
+    WIN_PATH="Z:$(echo "$1" | sed 's|/|\\|g')"
+    flatpak run --command=bottles-cli com.usebottles.bottles run -b msoffice -p "$EXE" -- "$WIN_PATH"
+else
+    flatpak run --command=bottles-cli com.usebottles.bottles run -b msoffice -p "$EXE"
+fi
