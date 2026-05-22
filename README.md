@@ -4,6 +4,8 @@
 
 A single script that sets up Microsoft Office (2007–2016) on Linux through Wine and Bottles, complete with native desktop integration. No virtual machines, no overhead — your Office apps look and feel like they belong right at home on your system.
 
+> **Disclaimer:** This project does NOT provide, encourage, or support the use of pirated or cracked software. We assume you own a legitimate Microsoft Office license and have an official installer. This tool only automates the Linux setup process. If you do not have a valid license, consider free alternatives like [OnlyOffice](https://www.onlyoffice.com/) or [LibreOffice](https://www.libreoffice.org/).
+
 ## How It Works
 
 Behind the scenes, msoffice-linux leans on Bottles (a sleek Wine frontend) to create a clean, isolated Windows compatibility layer. It grabs a battle-tested Wine runner, applies the right DLL overrides to keep things stable, installs Office inside the bottle, and then weaves it into your desktop — generating native `.desktop` entries so Word, Excel, and friends appear in your app menu and respond to file associations as if they'd been there all along.
