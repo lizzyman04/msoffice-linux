@@ -125,17 +125,61 @@ download_runner() {
         return
     fi
 
-    info "Downloading Wine runner $RUNNER_NAME..."
+    # Check remote file size via HEAD request
+    local size_bytes=0
+    if command -v wget &>/dev/null; then
+        size_bytes=$(wget --spider --server-response -q "$RUNNER_URL" 2>&1 \
+            | grep -i "Content-Length" | tail -1 | awk '{print $2}' | tr -d '\r')
+    elif command -v curl &>/dev/null; then
+        size_bytes=$(curl -sI "$RUNNER_URL" \
+            | grep -i "Content-Length" | tail -1 | awk '{print $2}' | tr -d '\r')
+    fi
+    size_bytes="${size_bytes:-0}"
+
+    local size_mb=$(( size_bytes / 1024 / 1024 ))
+    if [[ "$size_mb" -gt 100 ]]; then
+        warn "The Wine runner download is approximately ${size_mb}MB."
+        local dl_confirm
+        read -rp "Continue with download? (y/n): " dl_confirm < /dev/tty
+        if [[ "$dl_confirm" != "y" && "$dl_confirm" != "Y" ]]; then
+            echo
+            echo "To install manually, run:"
+            echo "  mkdir -p \"$runner_dir\""
+            echo "  wget -c -O /tmp/wine-runner.tar.gz \"$RUNNER_URL\""
+            echo "  tar -xzf /tmp/wine-runner.tar.gz -C \"$runner_dir\" --strip-components=1"
+            exit 0
+        fi
+    fi
+
     mkdir -p "$runner_dir"
     local tmp_archive
     tmp_archive="$(mktemp /tmp/wine-runner-XXXXXX.tar.gz)"
 
-    if ! curl -L --progress-bar --retry 5 --retry-delay 3 --retry-all-errors \
-              "$RUNNER_URL" -o "$tmp_archive" \
-        || [[ ! -s "$tmp_archive" ]]; then
+    info "Downloading Wine runner $RUNNER_NAME..."
+
+    local download_ok=false
+    if command -v wget &>/dev/null; then
+        if wget -c --progress=bar:force -O "$tmp_archive" "$RUNNER_URL" 2>&1; then
+            download_ok=true
+        fi
+    fi
+
+    if [[ "$download_ok" == false ]] && command -v curl &>/dev/null; then
+        warn "wget failed or not available. Trying curl..."
+        if curl -L --retry 3 --retry-delay 3 -o "$tmp_archive" "$RUNNER_URL"; then
+            download_ok=true
+        fi
+    fi
+
+    if [[ "$download_ok" == false ]] || [[ ! -s "$tmp_archive" ]]; then
         rm -f "$tmp_archive"
         rmdir "$runner_dir" 2>/dev/null || true
-        error "Failed to download Wine runner. Download manually and place it at:\n    $runner_dir\n  URL: $RUNNER_URL"
+        echo
+        echo "Both wget and curl failed. To install manually, run:"
+        echo "  mkdir -p \"$runner_dir\""
+        echo "  wget -c -O /tmp/wine-runner.tar.gz \"$RUNNER_URL\""
+        echo "  tar -xzf /tmp/wine-runner.tar.gz -C \"$runner_dir\" --strip-components=1"
+        error "Failed to download Wine runner."
     fi
 
     info "Extracting runner..."
