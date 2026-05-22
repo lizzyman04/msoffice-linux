@@ -238,9 +238,6 @@ State: 0
 Uninstallers: {}
 VKD3D: false
 Versioning: false
-Versioning_Automatic: false
-Versioning_Compression: false
-Versioning_Exclusion_Patterns: false
 Windows: $WINDOWS_VERSION
 WorkingDir: ''
 data: {}
@@ -278,7 +275,7 @@ cleanup_iso() {
 
 mount_iso() {
     local iso_path="$1"
-    ISO_MOUNT_DIR="$(mktemp -d /tmp/msoffice-iso-XXXXXX)"
+    ISO_MOUNT_DIR="$(mktemp -d "$HOME/.cache/msoffice-iso-XXXXXX")"
 
     info "Mounting ISO: $iso_path"
     if ! sudo mount -o loop,ro "$iso_path" "$ISO_MOUNT_DIR" 2>/dev/null; then
@@ -313,6 +310,7 @@ prompt_setup_path() {
         raw_path="${raw_path#\'}" ; raw_path="${raw_path%\'}"
         raw_path="${raw_path#\"}" ; raw_path="${raw_path%\"}"
         raw_path="${raw_path% }"  # trim trailing space
+        raw_path="${raw_path/#\~/$HOME}"  # expand leading tilde
 
         # Resolve to absolute path
         local resolved
@@ -350,10 +348,12 @@ prompt_setup_path() {
 }
 
 run_office_installer() {
+    local bottle_dir="$HOME/.var/app/com.usebottles.bottles/data/bottles/bottles/msoffice"
+    local runner_bin="$HOME/.var/app/com.usebottles.bottles/data/bottles/runners/$RUNNER_NAME/bin/wine"
+
     info "Launching Office installer inside bottle..."
-    flatpak run --command=bottles-cli com.usebottles.bottles run \
-        -b msoffice \
-        -e "$SETUP_PATH"
+    flatpak run --command=bash com.usebottles.bottles -c \
+        "WINEPREFIX='$bottle_dir' '$runner_bin' '$SETUP_PATH'"
     success "Office installer finished."
     cleanup_iso
 }
