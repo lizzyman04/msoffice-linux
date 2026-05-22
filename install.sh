@@ -90,7 +90,7 @@ select_office_version() {
     echo "  2) Office 2013"
     echo "  3) Office 2016"
     echo
-    read -rp "Enter choice [1-3]: " VERSION_CHOICE
+    read -rp "Enter choice [1-3]: " VERSION_CHOICE < /dev/tty
 
     case "$VERSION_CHOICE" in
         1)
@@ -190,7 +190,7 @@ prompt_setup_path() {
     echo
 
     while true; do
-        read -rp "Enter the full path to your Office setup.exe (or drag the file here): " raw_path
+        read -rp "Enter the full path to your Office setup.exe (or drag the file here): " raw_path < /dev/tty
 
         # Strip surrounding single or double quotes (drag-and-drop often adds them)
         raw_path="${raw_path#\'}" ; raw_path="${raw_path%\'}"
@@ -212,7 +212,7 @@ prompt_setup_path() {
         echo
 
         local confirm
-        read -rp "Proceed with installation? (y/n): " confirm
+        read -rp "Proceed with installation? (y/n): " confirm < /dev/tty
         if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
             break
         fi

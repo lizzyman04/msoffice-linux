@@ -22,7 +22,7 @@ print_banner() {
 confirm() {
     local prompt="$1"
     local reply
-    read -rp "$prompt (y/n): " reply
+    read -rp "$prompt (y/n): " reply < /dev/tty
     [[ "$reply" == "y" || "$reply" == "Y" ]]
 }
 
