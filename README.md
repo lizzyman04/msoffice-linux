@@ -61,6 +61,12 @@ Place your Office installer files in your working directory for convenience — 
 ## Uninstalling
 
 ```sh
+curl -sL https://raw.githubusercontent.com/lizzyman04/msoffice-linux/main/uninstall.sh | bash
+```
+
+Or if you cloned the repo:
+
+```sh
 ./uninstall.sh
 ```
 

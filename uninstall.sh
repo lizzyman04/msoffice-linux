@@ -52,7 +52,7 @@ update_caches() {
 
 remove_bottle() {
     info "Removing Bottles bottle 'msoffice'..."
-    flatpak run --command=bottles-cli com.usebottles.bottles remove msoffice
+    rm -rf "$HOME/.var/app/com.usebottles.bottles/data/bottles/bottles/msoffice"
     success "Bottle removed."
 }
 
