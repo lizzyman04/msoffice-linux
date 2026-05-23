@@ -150,6 +150,44 @@ install_icons() {
     success "Icons installed."
 }
 
+create_icon_theme_index() {
+    local theme_file="$HOME/.local/share/icons/hicolor/index.theme"
+    [[ -f "$theme_file" ]] && return
+
+    cat > "$theme_file" <<'EOF'
+[Icon Theme]
+Name=Hicolor
+Comment=Fallback icon theme
+Directories=16x16/apps,32x32/apps,48x48/apps,128x128/apps,256x256/apps
+
+[16x16/apps]
+Size=16
+Context=Applications
+Type=Threshold
+
+[32x32/apps]
+Size=32
+Context=Applications
+Type=Threshold
+
+[48x48/apps]
+Size=48
+Context=Applications
+Type=Threshold
+
+[128x128/apps]
+Size=128
+Context=Applications
+Type=Threshold
+
+[256x256/apps]
+Size=256
+Context=Applications
+Type=Threshold
+EOF
+    success "Created icon theme index."
+}
+
 update_caches() {
     info "Updating desktop and icon caches..."
     update-desktop-database "$HOME/.local/share/applications/" 2>/dev/null || true
@@ -193,6 +231,7 @@ main() {
     install_wrappers
     install_desktop_files
     install_icons
+    create_icon_theme_index
     update_caches
     set_mime_associations
 

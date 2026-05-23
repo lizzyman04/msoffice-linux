@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
-# Wrapper for Microsoft Outlook via Bottles
 
-EXE="OUTLOOK.EXE"
+BOTTLE_DIR="$HOME/.var/app/com.usebottles.bottles/data/bottles/bottles/msoffice"
+RUNNER_BIN="$HOME/.var/app/com.usebottles.bottles/data/bottles/runners/pol-8.2/bin/wine"
+EXE_PATH='C:\Program Files\Microsoft Office\Office14\OUTLOOK.EXE'
 
 if [[ -n "$1" ]]; then
-    WIN_PATH="Z:$(echo "$1" | sed 's|/|\\|g')"
-    flatpak run --command=bottles-cli com.usebottles.bottles run -b msoffice -p "$EXE" -- "$WIN_PATH" 2>/dev/null
+    WIN_ARG="Z:$(echo "$1" | sed 's|/|\\|g')"
+    flatpak run --command=bash com.usebottles.bottles -c \
+        "WINEPREFIX='$BOTTLE_DIR' '$RUNNER_BIN' '$EXE_PATH' '$WIN_ARG'" 2>/dev/null &
 else
-    flatpak run --command=bottles-cli com.usebottles.bottles run -b msoffice -p "$EXE" 2>/dev/null
+    flatpak run --command=bash com.usebottles.bottles -c \
+        "WINEPREFIX='$BOTTLE_DIR' '$RUNNER_BIN' '$EXE_PATH'" 2>/dev/null &
 fi
+disown
