@@ -350,10 +350,25 @@ prompt_setup_path() {
 run_office_installer() {
     local bottle_dir="$HOME/.var/app/com.usebottles.bottles/data/bottles/bottles/msoffice"
     local runner_bin="$HOME/.var/app/com.usebottles.bottles/data/bottles/runners/$RUNNER_NAME/bin/wine"
+    local WINE_LOG="$HOME/.cache/msoffice-install.log"
 
     info "Launching Office installer inside bottle..."
     flatpak run --command=bash com.usebottles.bottles -c \
-        "WINEPREFIX='$bottle_dir' '$runner_bin' '$SETUP_PATH'"
+        "WINEPREFIX='$bottle_dir' '$runner_bin' '$SETUP_PATH'" 2>"$WINE_LOG"
+
+    local real_errors
+    real_errors="$(grep 'err:' "$WINE_LOG" \
+        | grep -v 'get_stub_manager_from_ipid\|NtFsControlFile' \
+        | sort -u)"
+
+    if [[ -n "$real_errors" ]]; then
+        warn "Some Wine errors occurred during installation (this may be normal):"
+        echo "$real_errors" | head -20 | sed 's/^/    /'
+        echo "Full log saved to: $WINE_LOG"
+    else
+        info "Installation log saved to: $WINE_LOG"
+    fi
+
     success "Office installer finished."
     cleanup_iso
 }
