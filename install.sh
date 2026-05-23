@@ -204,6 +204,9 @@ create_bottle() {
         "WINEPREFIX='$bottle_dir' WINEARCH=win32 '$runner_bin' wineboot --init" 2>/dev/null || true
     sleep 3
 
+    flatpak run --command=bash com.usebottles.bottles -c \
+        "WINEPREFIX='$bottle_dir' '$runner_bin' reg add 'HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides' /v winemenubuilder.exe /d '' /f" 2>/dev/null || true
+
     info "Writing bottle.yml..."
     local config_src
     local tmp_config=""
@@ -333,7 +336,7 @@ run_office_installer() {
 
     info "Launching Office installer inside bottle..."
     flatpak run --command=bash com.usebottles.bottles -c \
-        "WINEPREFIX='$bottle_dir' '$runner_bin' '$SETUP_PATH'" 2>"$WINE_LOG"
+        "WINEPREFIX='$bottle_dir' WINEDLLOVERRIDES='winemenubuilder.exe=' '$runner_bin' '$SETUP_PATH'" 2>"$WINE_LOG"
 
     local real_errors
     real_errors="$(grep 'err:' "$WINE_LOG" \
