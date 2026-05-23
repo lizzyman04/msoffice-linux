@@ -96,24 +96,24 @@ select_office_version() {
         1)
             RUNNER_NAME="pol-8.2"
             RUNNER_URL="https://www.playonlinux.com/wine/binaries/phoenicis/upstream-linux-x86/PlayOnLinux-wine-8.2-upstream-linux-x86.tar.gz"
-            WINDOWS_VERSION="win7"
+            CONFIG_FILE="office2010.yml"
             ;;
         2)
             RUNNER_NAME="pol-4.3"
             RUNNER_URL="https://www.playonlinux.com/wine/binaries/phoenicis/upstream-linux-x86/PlayOnLinux-wine-4.3-upstream-linux-x86.tar.gz"
-            WINDOWS_VERSION="win7"
+            CONFIG_FILE="office2013.yml"
             ;;
         3)
             RUNNER_NAME="pol-4.3"
             RUNNER_URL="https://www.playonlinux.com/wine/binaries/phoenicis/upstream-linux-x86/PlayOnLinux-wine-4.3-upstream-linux-x86.tar.gz"
-            WINDOWS_VERSION="win10"
+            CONFIG_FILE="office2016.yml"
             ;;
         *)
             error "Invalid selection. Run the script again and choose 1, 2, or 3."
             ;;
     esac
 
-    success "Selected runner: $RUNNER_NAME | Windows: $WINDOWS_VERSION"
+    success "Selected runner: $RUNNER_NAME | Config: $CONFIG_FILE"
 }
 
 download_runner() {
@@ -205,45 +205,24 @@ create_bottle() {
     sleep 3
 
     info "Writing bottle.yml..."
+    local config_src
+    local tmp_config=""
+    if [[ -n "$SCRIPT_DIR" && -f "$SCRIPT_DIR/configs/$CONFIG_FILE" ]]; then
+        config_src="$SCRIPT_DIR/configs/$CONFIG_FILE"
+    else
+        info "configs/ not found locally — downloading $CONFIG_FILE from GitHub..."
+        tmp_config="$(mktemp /tmp/msoffice-config-XXXXXX.yml)"
+        curl -sL "https://raw.githubusercontent.com/lizzyman04/msoffice-linux/main/configs/$CONFIG_FILE" \
+            -o "$tmp_config"
+        config_src="$tmp_config"
+    fi
+
+    cp "$config_src" "$bottle_dir/bottle.yml"
+    [[ -n "$tmp_config" ]] && rm -f "$tmp_config"
+
     local creation_date
     creation_date="$(date +'%Y-%m-%d %H:%M:%S.%6N')"
-
-    cat > "$bottle_dir/bottle.yml" <<EOF
-Arch: win32
-CompatData: ''
-Creation_Date: '$creation_date'
-Custom_Path: false
-DLL_Overrides:
-    gdiplus: native,builtin
-    riched20: native,builtin
-DXVK: false
-Environment: Custom
-Environment_Variables: {}
-External_Programs: {}
-Installed_Dependencies:
-- msxml6
-- allfonts
-- vcredist2019
-- dotnet48
-- riched20
-Language: sys
-LatencyFleX: false
-NVAPI: false
-Name: msoffice
-Path: msoffice
-Runner: $RUNNER_NAME
-RunnerPath: ''
-Sandbox: false
-State: 0
-Uninstallers: {}
-VKD3D: false
-Versioning: false
-Windows: $WINDOWS_VERSION
-WorkingDir: ''
-data: {}
-run_in_terminal: false
-session_arguments: ''
-EOF
+    sed -i "1a Creation_Date: '$creation_date'" "$bottle_dir/bottle.yml"
 
     success "bottle.yml written."
 
