@@ -2,7 +2,12 @@
 
 BOTTLE_DIR="$HOME/.var/app/com.usebottles.bottles/data/bottles/bottles/msoffice"
 RUNNER_BIN="$HOME/.var/app/com.usebottles.bottles/data/bottles/runners/pol-8.2/bin/wine"
-EXE_PATH='C:\Program Files\Microsoft Office\Office14\MSPUB.EXE'
+
+if [[ -f "$BOTTLE_DIR/drive_c/Program Files (x86)/Microsoft Office/Office14/MSPUB.EXE" ]]; then
+    EXE_PATH='C:\Program Files (x86)\Microsoft Office\Office14\MSPUB.EXE'
+else
+    EXE_PATH='C:\Program Files\Microsoft Office\Office14\MSPUB.EXE'
+fi
 
 if [[ -n "$1" ]]; then
     WIN_ARG="Z:$(echo "$1" | sed 's|/|\\|g')"

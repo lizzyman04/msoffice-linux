@@ -113,7 +113,19 @@ select_office_version() {
             ;;
     esac
 
-    success "Selected runner: $RUNNER_NAME | Config: $CONFIG_FILE"
+    echo
+    echo "Select architecture:"
+    echo "  1) win32 — better for older Office versions, legacy add-ins and DLLs; apps may crash. (recommended for low-end PCs)"
+    echo "  2) win64 — supports modern 64-bit installers and larger workloads; (recommended for higher-spec PCs — RAM/CPU)"
+    echo
+    read -rp "Enter choice [1-2]: " ARCH_CHOICE < /dev/tty
+
+    case "$ARCH_CHOICE" in
+        2) WINEARCH="win64" ;;
+        *) WINEARCH="win32" ;;
+    esac
+
+    success "Selected runner: $RUNNER_NAME | Config: $CONFIG_FILE | Arch: $WINEARCH"
 }
 
 download_runner() {
@@ -138,7 +150,7 @@ download_runner() {
 
     local size_mb=$(( size_bytes / 1024 / 1024 ))
     if [[ "$size_mb" -gt 100 ]]; then
-        warn "The Wine runner download is approximately ${size_mb}MB."
+        warn "The Wine runner download is approximately ${size_mb}MB. Additional ~50MB for core fonts and Visual C++ redistributables."
         local dl_confirm
         read -rp "Continue with download? (y/n): " dl_confirm < /dev/tty
         if [[ "$dl_confirm" != "y" && "$dl_confirm" != "Y" ]]; then
@@ -201,7 +213,7 @@ create_bottle() {
     mkdir -p "$bottle_dir"
 
     flatpak run --command=bash com.usebottles.bottles -c \
-        "WINEPREFIX='$bottle_dir' WINEARCH=win32 '$runner_bin' wineboot --init" 2>/dev/null || true
+        "WINEPREFIX='$bottle_dir' WINEARCH='$WINEARCH' '$runner_bin' wineboot --init" 2>/dev/null || true
     sleep 3
 
     flatpak run --command=bash com.usebottles.bottles -c \
@@ -221,6 +233,7 @@ create_bottle() {
     fi
 
     cp "$config_src" "$bottle_dir/bottle.yml"
+    [[ "$WINEARCH" == "win64" ]] && sed -i "s/Arch: win32/Arch: win64/" "$bottle_dir/bottle.yml"
     [[ -n "$tmp_config" ]] && rm -f "$tmp_config"
 
     local creation_date
@@ -242,6 +255,94 @@ create_bottle() {
     else
         warn "Bottle not listed yet — Bottles may need to rescan. Continuing anyway."
     fi
+}
+
+install_dependencies() {
+    local bottle_dir="$HOME/.var/app/com.usebottles.bottles/data/bottles/bottles/msoffice"
+    local runner_bin="$HOME/.var/app/com.usebottles.bottles/data/bottles/runners/$RUNNER_NAME/bin/wine"
+    local fonts_dir="$bottle_dir/drive_c/windows/Fonts"
+    mkdir -p "$HOME/.cache"
+    local tmp_deps
+    tmp_deps="$(mktemp -d "$HOME/.cache/msoffice-deps-XXXXXX")"
+
+    # --- Core Fonts ---
+    info "Installing core fonts..."
+
+    if ! command -v cabextract &>/dev/null; then
+        info "cabextract not found. Installing..."
+        if command -v apt &>/dev/null; then
+            sudo apt install -y cabextract
+        elif command -v dnf &>/dev/null; then
+            sudo dnf install -y cabextract
+        elif command -v pacman &>/dev/null; then
+            sudo pacman -Sy --noconfirm cabextract
+        else
+            warn "Cannot install cabextract (no apt/dnf/pacman). Skipping core fonts."
+        fi
+    fi
+
+    if command -v cabextract &>/dev/null; then
+        local font_cabs=(
+            andale32.exe arial32.exe arialb32.exe comic32.exe courie32.exe
+            georgi32.exe impact32.exe times32.exe trebuc32.exe verdan32.exe webdin32.exe
+        )
+        local font_base="https://sourceforge.net/projects/corefonts/files/the%20fonts/final"
+        local font_tmp="$tmp_deps/fonts"
+        mkdir -p "$font_tmp" "$fonts_dir"
+
+        for cab in "${font_cabs[@]}"; do
+            local cab_file="$font_tmp/$cab"
+            if command -v wget &>/dev/null; then
+                wget -q -O "$cab_file" "$font_base/$cab/download" 2>/dev/null || true
+            elif command -v curl &>/dev/null; then
+                curl -sL -o "$cab_file" "$font_base/$cab/download" 2>/dev/null || true
+            fi
+            [[ -s "$cab_file" ]] && cabextract -q -d "$font_tmp" "$cab_file" 2>/dev/null || true
+        done
+
+        find "$font_tmp" -maxdepth 1 -iname "*.ttf" -exec cp -f {} "$fonts_dir/" \;
+        success "Core fonts installed."
+    fi
+
+    # --- vcredist 2012 ---
+    info "Installing Visual C++ 2012..."
+    local vc2012_url="https://download.microsoft.com/download/1/6/B/16B06F60-3B20-4FF2-B699-5E9B7962F9AE/VSU_4/vcredist_x86.exe"
+    local vc2012_file="$tmp_deps/vcredist2012_x86.exe"
+    local download_ok=false
+    if command -v wget &>/dev/null; then
+        wget -q -O "$vc2012_file" "$vc2012_url" 2>/dev/null && download_ok=true || true
+    fi
+    if [[ "$download_ok" == false ]] && command -v curl &>/dev/null; then
+        curl -sL -o "$vc2012_file" "$vc2012_url" 2>/dev/null && download_ok=true || true
+    fi
+    if [[ "$download_ok" == true && -s "$vc2012_file" ]]; then
+        flatpak run --command=bash com.usebottles.bottles -c \
+            "WINEPREFIX='$bottle_dir' WINEDLLOVERRIDES='winemenubuilder.exe=' '$runner_bin' '$vc2012_file' /quiet /norestart" 2>/dev/null || true
+        success "Visual C++ 2012 installed."
+    else
+        warn "Failed to download vcredist 2012. Skipping."
+    fi
+
+    # --- vcredist 2019 ---
+    info "Installing Visual C++ 2019..."
+    local vc2019_url="https://aka.ms/vs/16/release/vc_redist.x86.exe"
+    local vc2019_file="$tmp_deps/vcredist2019_x86.exe"
+    download_ok=false
+    if command -v wget &>/dev/null; then
+        wget -q -O "$vc2019_file" "$vc2019_url" 2>/dev/null && download_ok=true || true
+    fi
+    if [[ "$download_ok" == false ]] && command -v curl &>/dev/null; then
+        curl -sL -o "$vc2019_file" "$vc2019_url" 2>/dev/null && download_ok=true || true
+    fi
+    if [[ "$download_ok" == true && -s "$vc2019_file" ]]; then
+        flatpak run --command=bash com.usebottles.bottles -c \
+            "WINEPREFIX='$bottle_dir' WINEDLLOVERRIDES='winemenubuilder.exe=' '$runner_bin' '$vc2019_file' /quiet /norestart" 2>/dev/null || true
+        success "Visual C++ 2019 installed."
+    else
+        warn "Failed to download vcredist 2019. Skipping."
+    fi
+
+    rm -rf "$tmp_deps"
 }
 
 ISO_MOUNT_DIR=""
@@ -394,6 +495,7 @@ main() {
     select_office_version
     download_runner
     create_bottle
+    install_dependencies
     prompt_setup_path
     run_office_installer
     run_integrate
